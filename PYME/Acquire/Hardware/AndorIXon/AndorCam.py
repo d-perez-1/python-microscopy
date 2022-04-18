@@ -35,7 +35,9 @@ if plat.startswith('Windows'):
     if arch == '32bit':
         _stdcall_libraries['ATMCD32D'] = WinDLL('ATMCD32D')
     else:
-        _stdcall_libraries['ATMCD32D'] = WinDLL('atmcd64d')
+        # _stdcall_libraries['ATMCD32D'] = WinDLL('atmcd64d')
+        # needed to find the correct dll
+        _stdcall_libraries['ATMCD32D'] = WinDLL('C:/Program Files/Andor SOLIS NEW/atmcd64d_legacy')
     from ctypes.wintypes import ULONG, DWORD, BOOL, BYTE, WORD, UINT, HANDLE, HWND
 else:
     _stdcall_libraries['ATMCD32D'] = CDLL('libandor.so')

@@ -184,7 +184,11 @@ class iXonCamera(Camera):
         if not ret == ac.DRV_SUCCESS:
             raise RuntimeError('Error setting image size: %s' % ac.errorCodes[ret])
 
-        ret = ac.SetEMGainMode(0)
+        ret = ac.SetEMGainMode(3)
+        # Mode 0: The EM Gain is controlled by DAC settings in the range 0-255. Default mode.
+        # 1: The EM Gain is controlled by DAC settings in the range 0-4095.
+        # 2: Linear mode.
+        # 3: Real EM gain
         if not ret == ac.DRV_SUCCESS:
             raise RuntimeError('Error setting EM Gain Mode: %s' % ac.errorCodes[ret])
 

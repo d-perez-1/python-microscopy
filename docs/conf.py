@@ -243,6 +243,8 @@ exclude_patterns = ['_build/*', '_hidden/*']#, 'api/*']
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'
 
+numfig=True
+
 # A list of ignored prefixes for module index sorting.
 #modindex_common_prefix = []
 
@@ -306,11 +308,13 @@ html_static_path = ['_static']
 # template names.
 #html_additional_pages = {}
 
-html_context = {
-    'css_files': [
-      '_static/theme_overrides.css', # override wide tables in RTD theme
-    ],
-}
+#html_context = {
+#    'css_files': [
+#      '_static/theme_overrides.css', # override wide tables in RTD theme
+#    ],
+#}
+
+html_css_files = ["_static/theme_overrides.css"]  # override wide tables in RTD theme
 
 # If false, no module index is generated.
 html_use_modindex = True

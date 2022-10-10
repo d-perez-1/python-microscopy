@@ -94,6 +94,7 @@ cdef class TriangleMesh(TrianglesBase):
     cdef bint _singular_vertices_valid
 
     cdef public object vertex_properties
+    cdef public object vertex_vector_properties # Vector valued properties (to visualise as a quiver)
     cdef public object extra_vertex_data
     cdef object fix_boundary
     cdef object _manifold
@@ -106,6 +107,8 @@ cdef class TriangleMesh(TrianglesBase):
     cdef object _H
     cdef object _K
     cdef public object smooth_curvature
+
+    cdef public object mdh # placeholder to allow metadata injection
 
     cdef _set_chalfedges(self, np.ndarray)#halfedge_t[:])
     cdef _set_cfaces(self, np.ndarray)#face_d[:])

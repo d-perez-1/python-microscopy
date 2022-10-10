@@ -148,9 +148,13 @@ class DualMarchingCubes(ModuleBase):
         from PYME.experimental import dual_marching_cubes
         # from PYME.experimental import triangle_mesh
         from PYME.experimental import _triangle_mesh as triangle_mesh
+        from PYME.IO import MetaDataHandler
+
+        inp = namespace[self.input]
+        md = MetaDataHandler.DictMDHandler(getattr(inp, 'mdh', None)) # get metadata from the input dataset if present
         
         dmc = dual_marching_cubes.PiecewiseDualMarchingCubes(self.threshold_density)
-        dmc.set_octree(namespace[self.input].truncate_at_n_points(int(self.n_points_min)))
+        dmc.set_octree(inp.truncate_at_n_points(int(self.n_points_min)))
         tris = dmc.march(dual_march=False)
 
         print('Generating TriangularMesh object')
@@ -168,8 +172,26 @@ class DualMarchingCubes(ModuleBase):
         if self.cull_inner_surfaces:
             surf.remove_inner_surfaces()
 
+        self._params_to_metadata(md)
+        surf.mdh = md #inject metadata
+        
         namespace[self.output] = surf
 
+@register_module('Isosurface')
+class Isosurface(ModuleBase):
+    input = Input('input')
+    output = Output('mesh')
+
+    threshold = Float(0.5)
+    remesh = Bool(True)
+    
+    def execute(self, namespace):
+        from PYME.experimental import isosurface
+
+        im = namespace[self.input]
+        T = isosurface.isosurface(im.data_xyztc[:,:,:,0,0].astype('f'), isolevel=self.threshold, voxel_size=im.voxelsize, origin=im.origin, remesh=self.remesh)
+
+        namespace[self.output] = T
 
 @register_module('DelaunayMarchingTetrahedra')
 class DelaunayMarchingTetrahedra(ModuleBase):

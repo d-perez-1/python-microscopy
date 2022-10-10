@@ -9,7 +9,7 @@ Created on Mon May 25 17:02:04 2015
 #import wx
 import six
 
-from PYME.recipes.traits import HasTraits, Float, List, Bool, Int, CStr, Enum, File, on_trait_change, Input, Output
+from PYME.recipes.traits import HasTraits, HasStrictTraits, Float, List, Bool, Int, CStr, Enum, File, on_trait_change, Input, Output, Instance
     
 #for some reason traitsui raises SystemExit when called from sphinx on OSX
 #This is due to the framework build problem of anaconda on OSX, and also
@@ -33,15 +33,45 @@ all_modules = {}
 _legacy_modules = {}
 module_names = {}
 
-def register_module(moduleName):
+def register_module(moduleName, prefix=None):
+    """
+    Register a module so that it is discoverable by the recipe architecture
+    
+    Recipe module prefixes are treated slightly differently depending on whether it is a PYME internal
+    recipe, or comes from an external module. For PYME-internal recipe modules, their prefix is the name
+    of the (python) module in which the recipe is defined. For external (plugin) recipe modules, it is
+    the name of the python **package** which contains the recipe module - a plugin may define multiple 
+    recipes in different files, but they will all be accessible using the package prefix. This is a change 
+    from previous behaviour where the most proximal module name was used in plugin derived modules (similar 
+    to internal recipe modules). This change was made to a) decrease the chance of collisions, where plugin
+    modules shadowed exisiting internal recipe modules and b) make module provenance (is this an internal
+    or plugin-derived module) clear to assist debugging.
+
+    If the plugin package name is not sufficiently distinctive, or happens to shadow any of the internal
+    PYME recipe module names, plugin authors have the opportuntiy to specify their own prefix as a second 
+    argument to register_module. If taking this route, the prefix should be an identifier of the 
+    group/individual maintaining the plugin - e.g. baddeleylab. 
+    """
     def c_decorate(cls):
-        py_module = cls.__module__.split('.')[-1]
-        full_module_name = '.'.join([py_module, moduleName])
+        if not prefix:
+            top_level_mod = cls.__module__.split('.')[0]
+            py_module = cls.__module__.split('.')[-1]
+
+            if top_level_mod == 'PYME':
+                prefix_ = py_module
+            else:
+                prefix_ = top_level_mod
+        else:
+            prefix_ = prefix
+        
+        full_module_name = '.'.join([prefix_, moduleName])
 
         all_modules[full_module_name] = cls
         _legacy_modules[moduleName] = cls #allow acces by non-hierarchical names for backwards compatibility
 
         module_names[cls] = full_module_name
+        cls._module_name = full_module_name
+        cls._short_name = moduleName # for use in metadata generation
         return cls
         
     return c_decorate
@@ -60,6 +90,8 @@ def register_legacy_module(moduleName, py_module=None):
         _legacy_modules[full_module_name] = cls
         _legacy_modules[moduleName] = cls #allow access by non-hierarchical names for backwards compatibility
 
+        cls._module_name = full_module_name
+
         #module_names[cls] = full_module_name
         return cls
 
@@ -70,7 +102,7 @@ class MissingInputError(Exception):
     pass
 
 
-class ModuleBase(HasTraits):
+class ModuleBase(HasStrictTraits):
     """
     Recipe modules represent a "functional" processing block, the effects of which depend solely on its
     inputs and parameters. They read a number of named inputs from the recipe namespace and write the
@@ -83,7 +115,13 @@ class ModuleBase(HasTraits):
     
     If you want side effects - e.g. saving something to disk, look at the OutputModule class.
     """
-    _invalidate_parent = True
+    _invalidate_parent = Bool(True)
+    _parent=Instance(object)
+
+    _initial_set = Bool(False)
+    _success = Bool(False)
+    _last_error = Instance(object)
+
     
     def __init__(self, parent=None, invalidate_parent = True, **kwargs):
         self._parent = parent
@@ -324,12 +362,32 @@ class ModuleBase(HasTraits):
         return []
     
     def get_params(self):
+        t = self.trait_get()
         editable = self.class_editable_traits()
-        inputs = [tn for tn in editable if tn.startswith('input')]
-        outputs = [tn for tn in editable if tn.startswith('output')]
+        inputs = [tn for tn in editable if (tn.startswith('input') or isinstance(t[tn], Input))]
+        outputs = [tn for tn in editable if (tn.startswith('output') or isinstance(t[tn], Output))]
         params = [tn for tn in editable if not (tn in inputs or tn in outputs or tn.startswith('_'))]
         
         return inputs, outputs, params
+
+    def _params_to_metadata(self, mdh):
+        """
+        Automatically populate metadata with module parameters
+
+        This currently gets called manually in a few modules ...
+
+        TODO - make this automatic.
+        TODO? - resolve ambiguities when the same module appears twice in a recipe (the metadata 
+        will currently reflect the settings of the last module to operate on the data). In practice,
+        probably best addressed by simply saving the whole recipe into the metadata in the output module
+        and then not worrying about the metadata entries saved by individual modules.
+        """
+        _, _, params = self.get_params()
+
+        for p in params:
+            p_name = ''.join([s.capitalize() for s in p.split('_')]) #convert to camel case to follow metadata conventions
+            mdh[f'Processing.{self._short_name}.{p_name}'] = getattr(self, p)
+
         
     def _pipeline_view(self, show_label=True):
         import wx

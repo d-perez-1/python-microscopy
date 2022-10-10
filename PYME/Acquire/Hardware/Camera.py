@@ -138,6 +138,8 @@ class Camera(object):
 
         self.active = True  # Should the camera write its metadata?
 
+        self._saturation_threshold = (2**16) - 1 # default saturation threshold, if not provided in noise_properties
+
         # Register as a provider of metadata (record camera settings)
         # this is important so that the camera settings get recorded
         MetaDataHandler.provideStartMetadata.append(self.GenStartMetadata)
@@ -713,12 +715,12 @@ class Camera(object):
         'ElectronsPerCount' : AD conversion factor - how many electrons per ADU
         'NoiseFactor' : excess (multiplicative) noise factor 1.44 for EMCCD, 1 for standard CCD/sCMOS. See
             doi: 10.1109/TED.2003.813462
+        'SaturationThreshold' : the full well capacity (in ADU)  
 
         and optionally
 
         'ADOffset' : the dark level (in ADU)
         'DefaultEMGain' : a sensible EM gain setting to use for localization recording
-        'SaturationThreshold' : the full well capacity (in ADU)  
 
 
         These are sourced from config files, referenced by camera serial number and gain mode. 
@@ -818,6 +820,19 @@ class Camera(object):
             mdh.setEntry('Camera.ROIOriginY', y1)
             mdh.setEntry('Camera.ROIWidth', x2 - x1)
             mdh.setEntry('Camera.ROIHeight', y2 - y1)
+    
+    @property
+    def SaturationThreshold(self):
+        """
+        Returns
+        -------
+        int
+            the full well capacity (in ADU), typically 2^bitdepth - 1
+        """
+        try: 
+            return self.noise_properties['SaturationThreshold']
+        except (KeyError, RuntimeError):
+            return self._saturation_threshold
             
 
     def Shutdown(self):

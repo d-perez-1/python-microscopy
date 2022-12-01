@@ -9,7 +9,7 @@ Created on Mon May 25 17:02:04 2015
 #import wx
 import six
 
-from PYME.recipes.traits import HasTraits, HasStrictTraits, Float, List, Bool, Int, CStr, Enum, File, on_trait_change, Input, Output, Instance
+from PYME.recipes.traits import HasTraits, HasStrictTraits, Float, List, Bool, Int, CStr, Enum, File, on_trait_change, Input, Output, Instance, WeakRef
     
 #for some reason traitsui raises SystemExit when called from sphinx on OSX
 #This is due to the framework build problem of anaconda on OSX, and also
@@ -27,6 +27,11 @@ import numpy as np
 
 import logging
 logger = logging.getLogger(__name__)
+
+import yaml
+class MyDumper(yaml.SafeDumper):
+            def represent_mapping(self, tag, value, flow_style=None):
+                return super(MyDumper, self).represent_mapping(tag, value, False)
 
 # TODO - move to recipe.py?
 all_modules = {}
@@ -116,7 +121,7 @@ class ModuleBase(HasStrictTraits):
     If you want side effects - e.g. saving something to disk, look at the OutputModule class.
     """
     _invalidate_parent = Bool(True)
-    _parent=Instance(object)
+    _parent=WeakRef(object, allow_none=True)
 
     _initial_set = Bool(False)
     _success = Bool(False)
@@ -168,7 +173,7 @@ class ModuleBase(HasStrictTraits):
             # don't trigger on private variables
             return
         
-        if self._invalidate_parent and not self.__dict__.get('_parent', None) is None:
+        if self._invalidate_parent and not self._parent is None:
             #print('invalidating')
             self._parent.prune_dependencies_from_namespace(self.outputs)
             
@@ -186,6 +191,31 @@ class ModuleBase(HasStrictTraits):
         if len(self.outputs) == 0:
             raise RuntimeError('Module should define at least one output.')
         
+    def cleaned_dict_repr(self):
+        ct = self.class_traits()
+            
+        mod_traits_cleaned = {}
+        for k, v in self.get().items():
+            if not k.startswith('_'): #don't save private data - this is usually used for caching etc ..,
+                try:
+                    if (not (v == ct[k].default)) or (k.startswith('input')) or (k.startswith('output')) or isinstance(ct[k], (Input, Output)):
+                        #don't save defaults
+                        if isinstance(v, dict) and not type(v) == dict:
+                            v = dict(v)
+                        elif isinstance(v, list) and not type(v) == list:
+                            v = list(v)
+                        elif isinstance(v, set) and not type(v) == set:
+                            v = set(v)
+                        
+                        mod_traits_cleaned[k] = v
+                except KeyError:
+                    # for some reason we have a trait that shouldn't be here
+                    pass
+        return {module_names[self.__class__]: mod_traits_cleaned}
+
+    def toYAML(self):
+        return yaml.dump(self.cleaned_dict_repr(), Dumper=MyDumper)
+
     def check_inputs(self, namespace):
         """
         Checks that module inputs are present in namespace, raising an exception if they are missing. Existing to simplify

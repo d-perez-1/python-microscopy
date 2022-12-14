@@ -188,6 +188,96 @@ class H5Exporter(Exporter):
 
 exporter(H5Exporter)
 
+class SpecH5Exporter(Exporter):
+    extension = '*.h5'
+    descr = 'PYME HDF - .h5'
+
+    def __init__(self, complib='zlib', complevel=1):
+        self.complib = complib
+        self.complevel = complevel
+
+    def Export(self, data, outFile, xslice, yslice, zslice, metadata=None, events = None, origName=None, progressCallback=None, tslice=None):
+        h5out = tables.open_file(outFile,'w', chunk_cache_size=2**23)
+        filters=tables.Filters(self.complevel,self.complib,shuffle=True)
+        
+
+        # prepare now does cropping, no need to handle in individual exporters
+        # TODO - allow averaging as an alternative to sub-sampling
+        data, tslice, xSize, ySize, nZ, nT, nChans, nframes = self._prepare(data, xslice, yslice, zslice, tslice)
+        
+        print((xSize, ySize))
+        dtype = data.dtype
+        
+        if not dtype in ['uint8', 'uint16', 'float32']:
+            warnings.warn('Attempting to save an unsupported data-type (%s) - data should be one of uint8, uint16, or float32' % dtype,
+                           stacklevel=2)
+        
+        atm = tables.Atom.from_dtype(dtype)
+
+        ims = h5out.create_earray(h5out.root,'SpecData',atm,(0,xSize,ySize), filters=filters, expectedrows=nframes, chunkshape=(1,xSize,ySize))
+
+        curFrame = 0
+        for ch_num in range(nChans):
+            for t in range(nT):
+                for z in range(nZ):
+                    curFrame += 1
+                    im = data[:, :, z, t, ch_num].squeeze()
+                        
+                    if im.ndim == 1:
+                        im = im.reshape((-1, 1))[None, :,:]
+                    else:
+                        im = im[None, :,:]
+                    
+                    #print im.shape
+                    ims.append(im)
+                    if ((curFrame % 10) == 0)  and progressCallback:
+                        try:
+                            progressCallback(curFrame, nframes)
+                        except:
+                            pass
+            #ims.flush()
+        
+        ims.attrs.DimOrder = 'XYZTC'
+        ims.attrs.SizeC = nChans
+        ims.attrs.SizeZ = nZ
+        ims.attrs.SizeT = nT
+            
+        ims.flush()
+
+        outMDH = MetaDataHandler.HDFMDHandler(h5out)
+
+        if not metadata is None:
+            outMDH.copyEntriesFrom(metadata)
+
+            if 'Camera.ADOffset' in metadata.getEntryNames():
+                outMDH.setEntry('Camera.ADOffset', zslice.step*metadata.getEntry('Camera.ADOffset'))
+
+        if not origName is None:
+            outMDH.setEntry('cropping.originalFile', origName)
+            
+        outMDH.setEntry('cropping.xslice', xslice.indices(data.shape[0]))
+        outMDH.setEntry('cropping.yslice', yslice.indices(data.shape[1]))
+        outMDH.setEntry('cropping.zslice', zslice.indices(data.shape[2]))
+        if tslice is not None:
+            outMDH.setEntry('cropping.tslice', tslice.indices(data.shape[3]))
+
+        if not events is None and len(events) > 0:
+            assert isinstance(events, numpy.ndarray), "expected type of events object to be numpy array, but was {}".format(type(events))
+            # this should get the sorting done automatically
+            outEvents = h5out.create_table(h5out.root, 'Events', events, filters=tables.Filters(complevel=5, shuffle=True))
+        else:
+            outEvents = h5out.create_table(h5out.root, 'Events', SpoolEvent, filters=tables.Filters(complevel=5, shuffle=True))
+
+        h5out.flush()
+        h5out.close()
+
+        if progressCallback:
+            try:
+                progressCallback(nframes, nframes)
+            except:
+                pass
+
+
 
 #@exporter
 class TiffStackExporter(Exporter):

@@ -23,7 +23,8 @@ import os.path
 ##################
 
 import wx
-from PYME.DSView.arrayViewPanel import ArrayViewPanel, OptionsPanel
+from PYME.DSView.arrayViewPanel import ArrayViewPanel
+from PYME.DSView.DisplayOptionsPanel import OptionsPanel
 import numpy
 import os
 import wx.lib.agw.aui as aui
@@ -226,10 +227,10 @@ class Splitter:
         parent.AddMenuItem('Splitter', 'Unmix%s\tF7' % suff, self.OnUnmix)
         parent.AddMenuItem('Splitter', 'SetShiftField%s' % suff, self.OnSetShiftField)
 
-#        idConstROI = wx.NewId()
-#        idFlipView = wx.NewId()
-#        idUnmix = wx.NewId()
-#        idShiftfield = wx.NewId()
+#        idConstROI = wx.NewIdRef()
+#        idFlipView = wx.NewIdRef()
+#        idUnmix = wx.NewIdRef()
+#        idShiftfield = wx.NewIdRef()
 #
 #        self.menu = wx.Menu(title = '')
         

@@ -102,7 +102,7 @@ class IntensityTracePanel(FastGraphPanel):
             self.intensity_avg[:self._n_frames] = self.intensity_avg[offset:(offset+ self._n_frames)]
             self._buf_idx = self._n_frames - 1
         
-        print(self.intensity_avg[self._n_frames-1])
+        # print(self.intensity_avg[self._n_frames-1])
         self.SetData(self.frame_vals, self.intensity_avg[:self._n_frames])
 
 class TraceROISelectPanel(wx.Panel):

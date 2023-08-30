@@ -23,6 +23,17 @@
 
 import numpy as np
 
+def event_list(events, eventName):
+    """
+    Return list of all values of a particular event
+    """
+    x=list()
+    y=list()
+    for e in events[events['EventName'] == eventName]:
+        x.append(e['Time'])
+        y.append(e['EventDescr'].decode('ascii'))
+    return x, y
+
 def times_to_frames(t, events, mdh):
     """
     Use events and metadata to convert time-stamps to frame numbers

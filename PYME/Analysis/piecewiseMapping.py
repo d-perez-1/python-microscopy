@@ -34,6 +34,25 @@ def event_list(events, eventName):
         y.append(e['EventDescr'].decode('ascii'))
     return x, y
 
+def times_to_frames_DDP(t, mdh):
+    """
+    Use events and metadata to convert time-stamps to frame numbers
+
+    Parameters
+    ----------
+    t: ndarray
+        times [seconds since the epoch] to map to frame numbers
+    mdh:
+        Metadata handler with 'Camera.CycleTime' and 'StartTime' entries
+
+    Returns
+    -------
+    fr: ndarray
+        array of frame numbers corresponding to `t` input
+    """
+    cycTime = mdh.getEntry('Camera.CycleTime')
+    startTime = mdh.getEntry('StartTime')
+
 def times_to_frames(t, events, mdh):
     """
     Use events and metadata to convert time-stamps to frame numbers
